@@ -62,9 +62,9 @@ class TagSelectorPlugin extends Plugin {
     }
   }
 
-  async getTagFiles(directoryPath) {
+  async getTagFiles(tagDirectoryPath) {
     const files = [];
-    const folder = this.app.vault.getAbstractFileByPath(directoryPath);
+    const folder = this.app.vault.getAbstractFileByPath(tagDirectoryPath);
   
     if (folder) {
       console.log('Abstract file found:', folder); // 添加调试语句
@@ -76,10 +76,10 @@ class TagSelectorPlugin extends Plugin {
           }
         });
       } else {
-        console.error('The path is not a directory:', directoryPath);
+        console.error('The path is not a directory:', tagDirectoryPath);
       }
     } else {
-      console.error('Directory not found or is not a folder:', directoryPath);
+      console.error('Directory not found or is not a folder:', tagDirectoryPath);
     }
   
     console.log('Files found in directory:', files); // 添加调试语句
