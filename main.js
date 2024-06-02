@@ -41,22 +41,22 @@ class TagSelectorPlugin extends Plugin {
     }
 
     const tagDirectoryPath = decodeURIComponent(this.settings.tagDirectoryPath);
-    console.log('Loading tag files from directory:', tagDirectoryPath); // 添加调试语句
+    console.log('Loading tag files from directory:', tagDirectoryPath);
 
     try {
       const files = await this.getTagFiles(tagDirectoryPath);
-      console.log('Found tag files:', files); // 添加调试语句
+      console.log('Found tag files:', files);
 
       this.allTags = [];
 
       for (const filePath of files) {
         const tags = await this.getTags(filePath);
-        console.log('Tags from file', filePath, ':', tags); // 添加调试语句
+        console.log('Tags from file', filePath, ':', tags);
 
         this.allTags.push(...tags);
       }
 
-      console.log('All tags:', this.allTags); // 添加调试语句
+      console.log('All tags:', this.allTags);
     } catch (error) {
       console.error('Error loading tag files:', error);
     }
@@ -65,11 +65,11 @@ class TagSelectorPlugin extends Plugin {
   async getTagFiles(tagDirectoryPath) {
     const files = [];
     const folder = this.app.vault.getAbstractFileByPath(tagDirectoryPath);
-  
+
     if (folder) {
-      console.log('Abstract file found:', folder); // 添加调试语句
+      console.log('Abstract file found:', folder);
       if (folder instanceof TFolder) {
-        console.log('Directory found:', folder); // 添加调试语句
+        console.log('Directory found:', folder);
         Vault.recurseChildren(folder, (file) => {
           if (file instanceof TFile && file.extension === 'md') {
             files.push(file.path);
@@ -81,11 +81,10 @@ class TagSelectorPlugin extends Plugin {
     } else {
       console.error('Directory not found or is not a folder:', tagDirectoryPath);
     }
-  
-    console.log('Files found in directory:', files); // 添加调试语句
+
+    console.log('Files found in directory:', files);
     return files;
   }
-  
 
   onunload() {
     console.log('Unloading TagSelectorPlugin');
@@ -96,19 +95,19 @@ class TagSelectorPlugin extends Plugin {
     .tag-node {
       cursor: pointer;
     }
-    
+
     .tag-node:hover {
-      background-color: #f0f0f0; /* 悬停时的背景颜色 */
-      color: #000; /* 悬停时的文字颜色 */
+      background-color: #f0f0f0;
+      color: #000;
     }
-    
+
     .fixed-size-input {
       width: 100%;
-      height: 30px; /* 固定高度，可以根据需要调整 */
-      overflow: hidden; /* 隐藏溢出内容 */
-      white-space: nowrap; /* 不换行 */
-      text-overflow: ellipsis; /* 溢出部分用省略号表示 */
-    }    
+      height: 30px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
     `;
 
     const styleElement = document.createElement('style');
@@ -142,26 +141,29 @@ class TagSelectorPlugin extends Plugin {
   parseTagsFromContent(content) {
     const lines = content.split('\n');
     const tags = [];
-    let currentNode = null;
+    const stack = [];
 
     lines.forEach(line => {
-        const match = line.match(/^#+\s*(.+)/);
-        if (match) {
-            const tagName = match[1].trim();
-            const level = match[0].length;
+      const match = line.match(/^#+\s*(.+)/);
+      if (match) {
+        const tagName = match[1].trim();
+        const level = match[0].length;
 
-            const tagNode = { tag: tagName, children: [] };
+        const tagNode = { tag: tagName, children: [] };
 
-            if (!currentNode || level === 1) {
-                // 根标签或者新的一级标签
-                tags.push(tagNode);
-            } else {
-                // 子标签
-                currentNode.children.push(tagNode);
-            }
-
-            currentNode = tagNode;
+        while (stack.length >= level) {
+          stack.pop();
         }
+
+        if (stack.length === 0) {
+          tags.push(tagNode);
+        } else {
+          const parent = stack[stack.length - 1];
+          parent.children.push(tagNode);
+        }
+
+        stack.push(tagNode);
+      }
     });
 
     return tags;
@@ -188,7 +190,7 @@ class TagSelectorPlugin extends Plugin {
     const loadedData = await this.loadData();
     console.log('Loaded data:', loadedData);
 
-    this.settings = Object.assign({}, { tagDirectoryPath: '' }, loadedData);
+    this.settings = Object.assign({}, loadedData, { tagDirectoryPath: '' });
     console.log('Merged settings:', this.settings);
   }
 
@@ -203,7 +205,7 @@ class TagSelectionModal extends Modal {
     super(app);
     this.tags = tags;
     this.onSelect = onSelect;
-    this.fullPath = true; // 默认全路径插入
+    this.fullPath = true;
   }
 
   onOpen() {
@@ -219,7 +221,7 @@ class TagSelectionModal extends Modal {
       const li = ul.createEl('li');
       const span = li.createEl('span', { text: tagNode.tag, cls: 'tag-node' });
       span.onclick = () => {
-        this.onSelect({ tagPath: tagNode.tagPath, fullPath: this.fullPath });
+        this.onSelect({ tagPath: tagNode.tag, fullPath: this.fullPath });
         this.close();
       };
       if (tagNode.children.length > 0) {
@@ -233,6 +235,7 @@ class TagSelectionModal extends Modal {
     contentEl.empty();
   }
 }
+
 
 class TagSelectorSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -254,9 +257,10 @@ class TagSelectorSettingTab extends PluginSettingTab {
         text
           .setPlaceholder('Enter the path to the tag directory')
           .setValue(this.plugin.settings.tagDirectoryPath || '')
-          .onChange(value => {
+          .onChange(async value => {
             this.plugin.settings.tagDirectoryPath = value;
             console.log('Updated tagDirectoryPath:', this.plugin.settings.tagDirectoryPath);
+            await this.plugin.saveSettings();
           });
         text.inputEl.classList.add('fixed-size-input');
       });
@@ -273,5 +277,4 @@ class TagSelectorSettingTab extends PluginSettingTab {
       });
   }
 }
-
 module.exports = TagSelectorPlugin;
