@@ -1,0 +1,10 @@
+{
+  "id": "tag-selector-plugin",
+  "name": "Tag Selector Plugin",
+  "version": "1.0.0",
+  "minAppVersion": "0.12.0",
+  "description": "Select and insert tags from a predefined tag system.",
+  "author": "Your Name",
+  "authorUrl": "https://yourwebsite.com",
+  "isDesktopOnly": false
+}

@@ -1,0 +1,16 @@
+.tag-node {
+  cursor: pointer;
+}
+
+.tag-node:hover {
+  background-color: #f0f0f0; /* 悬停时的背景颜色 */
+  color: #000; /* 悬停时的文字颜色 */
+}
+
+.fixed-size-input {
+  width: 100%;
+  height: 30px; /* 固定高度，可以根据需要调整 */
+  overflow: hidden; /* 隐藏溢出内容 */
+  white-space: nowrap; /* 不换行 */
+  text-overflow: ellipsis; /* 溢出部分用省略号表示 */
+}
