@@ -56,13 +56,13 @@ class TagSelectorPlugin extends Plugin {
 
     try {
       const files = await this.getTagFiles(tagDirectoryPath);
-      console.log('找到的标签文件:', files);
+      console.log('找到的标签文件:', files); // 新增的调试语句
 
       this.allTags = [];
 
       for (const filePath of files) {
         const tags = await this.getTags(filePath);
-        console.log('来自文件', filePath, '的标签:', tags);
+        console.log('来自文件', filePath, '的标签:', tags); // 新增的调试语句
 
         this.allTags.push(...tags);
       }
