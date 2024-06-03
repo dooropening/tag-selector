@@ -1,84 +1,227 @@
-const { Plugin, TFile, TFolder, Modal, Notice, PluginSettingTab, Setting, Vault } = require('obsidian');
+const { Plugin, TFile, TFolder, Modal, Notice, PluginSettingTab, Setting } = require('obsidian');
 
 class TagSelectorPlugin extends Plugin {
   async onload() {
-    console.log('加载 TagSelectorPlugin');
+    console.log('Loading TagSelectorPlugin');
 
-    // 加载设置
+    // Load settings
     await this.loadSettings();
 
-    console.log('设置已加载');
+    console.log('Settings loaded');
 
-    // 加载标签文件
+    // Load tag files
     await this.loadTagFiles();
 
-    console.log('标签文件已加载');
+    console.log('Tag files loaded');
 
-    // 添加自定义样式
+    // Add custom styles
     this.addCustomStyles();
 
-    console.log('自定义样式已添加');
+    console.log('Custom styles added');
 
-    // 添加设置选项卡
+    // Add setting tab
     this.addSettingTab(new TagSelectorSettingTab(this.app, this));
 
-    console.log('设置选项卡已添加');
+    console.log('Setting tab added');
 
-    // 添加命令
+    // Add command
     this.addCommand({
       id: 'select-tag',
-      name: '从标签系统选择标签',
+      name: 'Select Tag from Tag System',
       callback: () => this.selectTag(),
     });
 
-    console.log('命令已添加');
-  }
-
-  async loadSettings() {
-    console.log('正在加载设置...');
-    this.settings = await this.loadData(); // 直接使用 loadData 的结果作为 settings
-    console.log('加载数据:', this.settings);
-  }
-
-  async saveSettings() {
-    await this.saveData(this.settings);
-    new Notice('设置保存成功！');
+    console.log('Command added');
   }
 
   async loadTagFiles() {
     if (!this.settings.tagDirectoryPath) {
-      new Notice('标签目录未设置。请在插件设置中设置标签目录。');
+      new Notice('Tag directory not set. Please set the tag directory in the plugin settings.');
       return;
     }
 
     const tagDirectoryPath = decodeURIComponent(this.settings.tagDirectoryPath);
-    console.log('从目录加载标签文件:', tagDirectoryPath);
+    console.log('Loading tag files from directory:', tagDirectoryPath); // 添加调试语句
 
     try {
       const files = await this.getTagFiles(tagDirectoryPath);
-      console.log('找到的标签文件:', files);
+      console.log('Found tag files:', files); // 添加调试语句
 
       this.allTags = [];
 
       for (const filePath of files) {
         const tags = await this.getTags(filePath);
-        console.log('来自文件', filePath, '的标签:', tags);
+        console.log('Tags from file', filePath, ':', tags); // 添加调试语句
 
         this.allTags.push(...tags);
       }
 
-      console.log('所有标签:', this.allTags);
+      console.log('All tags:', this.allTags); // 添加调试语句
     } catch (error) {
-      console.error('加载标签文件时出错:', error);
+      console.error('Error loading tag files:', error);
     }
   }
 
-  // ... 其他方法保持不变 ...
+  async getTagFiles(directoryPath) {
+    const files = [];
+    const folder = this.app.vault.getAbstractFileByPath(directoryPath);
 
+    if (folder && folder instanceof TFolder) {
+      for (const file of folder.children) {
+        if (file instanceof TFile && file.extension === 'md') {
+          files.push(file.path);
+        }
+      }
+    }
+
+    return files;
+  }
+
+  onunload() {
+    console.log('Unloading TagSelectorPlugin');
+  }
+
+  addCustomStyles() {
+    const css = `
+    .tag-node {
+      cursor: pointer;
+    }
+    
+    .tag-node:hover {
+      background-color: #f0f0f0; /* 悬停时的背景颜色 */
+      color: #000; /* 悬停时的文字颜色 */
+    }
+    
+    .fixed-size-input {
+      width: 100%;
+      height: 30px; /* 固定高度，可以根据需要调整 */
+      overflow: hidden; /* 隐藏溢出内容 */
+      white-space: nowrap; /* 不换行 */
+      text-overflow: ellipsis; /* 溢出部分用省略号表示 */
+    }    
+    `;
+
+    const styleElement = document.createElement('style');
+    styleElement.textContent = css;
+    document.head.appendChild(styleElement);
+  }
+
+  async selectTag() {
+    if (!this.allTags || this.allTags.length === 0) {
+      new Notice('No tags found. Please make sure the tag directory is properly set and contains valid tag files.');
+      return;
+    }
+
+    const { tagPath, fullPath } = await this.showTagSelectionDialog(this.allTags);
+    if (tagPath) {
+      this.insertTagIntoActiveFile(tagPath, fullPath);
+    }
+  }
+
+  async getTags(tagFilePath) {
+    const decodedPath = decodeURIComponent(tagFilePath);
+    const file = this.app.vault.getAbstractFileByPath(decodedPath);
+    if (!(file && file instanceof TFile)) {
+      new Notice('Tag file not found in the vault.');
+      return [];
+    }
+    const content = await this.app.vault.read(file);
+    return this.parseTagsFromContent(content);
+  }
+
+  parseTagsFromContent(content) {
+    const lines = content.split('\n');
+    const tags = [];
+    let currentNode = null;
+
+    lines.forEach(line => {
+        const match = line.match(/^#+\s*(.+)/);
+        if (match) {
+            const tagName = match[1].trim();
+            const level = match[0].length;
+
+            const tagNode = { tag: tagName, children: [] };
+
+            if (!currentNode || level === 1) {
+                // 根标签或者新的一级标签
+                tags.push(tagNode);
+            } else {
+                // 子标签
+                currentNode.children.push(tagNode);
+            }
+
+            currentNode = tagNode;
+        }
+    });
+
+    return tags;
+  }
+
+  async showTagSelectionDialog(tags) {
+    return new Promise((resolve) => {
+      const modal = new TagSelectionModal(this.app, tags, resolve);
+      modal.open();
+    });
+  }
+
+  async insertTagIntoActiveFile(tagPath, fullPath) {
+    const activeLeaf = this.app.workspace.activeLeaf;
+    if (!activeLeaf) return;
+    const editor = activeLeaf.view.sourceMode.cmEditor;
+    if (!editor) return;
+    const tagToInsert = fullPath ? `#${tagPath}` : `#${tagPath.split('/').pop()}`;
+    editor.replaceSelection(tagToInsert);
+  }
+
+  async loadSettings() {
+    console.log('Loading settings...');
+    const loadedData = await this.loadData();
+    console.log('Loaded data:', loadedData);
+
+    this.settings = Object.assign({}, { tagDirectoryPath: '' }, loadedData);
+    console.log('Merged settings:', this.settings);
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+    new Notice('Settings saved successfully!');
+  }
 }
 
 class TagSelectionModal extends Modal {
-  // ... 类定义保持不变 ...
+  constructor(app, tags, onSelect) {
+    super(app);
+    this.tags = tags;
+    this.onSelect = onSelect;
+    this.fullPath = true; // 默认全路径插入
+  }
+
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.createEl('h2', { text: 'Select a Tag' });
+
+    this.renderTags(contentEl, this.tags);
+  }
+
+  renderTags(container, tags) {
+    const ul = container.createEl('ul');
+    tags.forEach(tagNode => {
+      const li = ul.createEl('li');
+      const span = li.createEl('span', { text: tagNode.tag, cls: 'tag-node' });
+      span.onclick = () => {
+        this.onSelect({ tagPath: tagNode.tagPath, fullPath: this.fullPath });
+        this.close();
+      };
+      if (tagNode.children.length > 0) {
+        this.renderTags(li, tagNode.children);
+      }
+    });
+  }
+
+  onClose() {
+    const { contentEl } = this;
+    contentEl.empty();
+  }
 }
 
 class TagSelectorSettingTab extends PluginSettingTab {
@@ -92,30 +235,30 @@ class TagSelectorSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: '标签选择器插件设置' });
+    containerEl.createEl('h2', { text: 'Tag Selector Plugin Settings' });
 
     new Setting(containerEl)
-      .setName('标签目录路径')
-      .setDesc('包含标签 Markdown 文件的目录路径。')
+      .setName('Tag Directory Path')
+      .setDesc('The path to the directory containing tag markdown files.')
       .addText(text => {
         text
-          .setPlaceholder('输入标签目录的路径')
+          .setPlaceholder('Enter the path to the tag directory')
           .setValue(this.plugin.settings.tagDirectoryPath || '')
           .onChange(value => {
             this.plugin.settings.tagDirectoryPath = value;
-            console.log('更新后的 tagDirectoryPath:', this.plugin.settings.tagDirectoryPath);
+            console.log('Updated tagDirectoryPath:', this.plugin.settings.tagDirectoryPath);
           });
-        text.inputEl.classList.add('fixed-size-input');
+        text.inputEl.classList.add('fixed-size-input'); // 添加固定大小的样式类
       });
 
     new Setting(containerEl)
       .addButton(button => {
         button
-          .setButtonText('保存')
+          .setButtonText('Save')
           .setCta()
           .onClick(async () => {
             await this.plugin.saveSettings();
-            console.log('通过按钮保存的设置:', this.plugin.settings);
+            console.log('Settings saved via button:', this.plugin.settings);
           });
       });
   }

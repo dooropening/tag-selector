@@ -46,11 +46,12 @@ class TagSelectorPlugin extends Plugin {
   }
 
   async loadTagFiles() {
+    console.log('开始加载标签文件...');
     if (!this.settings.tagDirectoryPath) {
       new Notice('标签目录未设置。请在插件设置中设置标签目录。');
       return;
     }
-
+    console.log('decode前的 tagDirectoryPath:', this.settings.tagDirectoryPath);
     const tagDirectoryPath = decodeURIComponent(this.settings.tagDirectoryPath);
     console.log('从目录加载标签文件:', tagDirectoryPath);
 
@@ -71,6 +72,7 @@ class TagSelectorPlugin extends Plugin {
     } catch (error) {
       console.error('加载标签文件时出错:', error);
     }
+    console.log('标签文件加载完成。');
   }
 
   async getTagFiles(tagDirectoryPath) {
