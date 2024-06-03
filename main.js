@@ -11,36 +11,31 @@ const {
 
 class TagSelectorPlugin extends Plugin {
   async onload() {
-    console.log("加载 TagSelectorPlugin");
+    console.log("Loading TagSelectorPlugin");
     await this.loadSettings();
-    console.log("设置已加载");
+    console.log("Setting loaded");
     this.addCustomStyles();
-    console.log("自定义样式已添加");
     this.addSettingTab(new TagSelectorSettingTab(this.app, this));
-    console.log("设置选项卡已添加");
     this.addCommand({
       id: "select-tag",
-      name: "从标签系统选择标签",
+      name: "tag-selector",
       callback: () => this.selectTag(),
     });
-    console.log("命令已添加");
   }
 
   async loadSettings() {
-    console.log("正在加载设置...");
     const loadedData = await this.loadData();
-    console.log("加载数据:", loadedData);
+    console.log("loadedData:", loadedData);
     this.settings = Object.assign({}, { tagDirectoryPath: "" }, loadedData);
-    console.log("合并后的设置:", this.settings);
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
-    new Notice("设置保存成功！");
+    new Notice("File path saved.");
   }
 
   onunload() {
-    console.log("卸载 TagSelectorPlugin");
+    console.log("Unloading TagSelectorPlugin");
   }
 
   addCustomStyles() {
@@ -99,7 +94,7 @@ class TagSelectorPlugin extends Plugin {
         }
       });
     } else {
-      console.error("路径不是目录:", tagDirectoryPath);
+      console.error("Path is not a folder:", tagDirectoryPath);
     }
     return files;
   }
@@ -168,7 +163,7 @@ class FileSelectionModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "选择文件" });
+    contentEl.createEl("h2", { text: "Choose a file" });
     this.renderFiles(contentEl, this.files);
   }
 
@@ -195,12 +190,12 @@ class TagSelectionModal extends Modal {
     super(app);
     this.tags = tags;
     this.onSelect = onSelect;
-    this.insertFullPath = true; // 默认插入全路径
+    this.insertFullPath = true; // Default insert full path
   }
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "选择标签" });
+    contentEl.createEl("h2", { text: "Choose a tag" });
     this.renderInsertTypeLabel(contentEl);
     this.renderTags(contentEl, this.tags);
     this.renderInsertTypeButton(contentEl);
@@ -222,14 +217,14 @@ class TagSelectionModal extends Modal {
   }
 
   renderInsertTypeLabel(container) {
-    this.insertTypeLabel = container.createEl("div", { text: "当前插入类型: 全路径", cls: "insert-type-label" });
+    this.insertTypeLabel = container.createEl("div", { text: "Current insert type: Full path", cls: "insert-type-label" });
   }
 
   renderInsertTypeButton(container) {
-    const button = container.createEl("button", { text: "切换插入类型", cls: "insert-type-button" });
+    const button = container.createEl("button", { text: "Switch Insert Type", cls: "insert-type-button" });
     button.onclick = () => {
       this.insertFullPath = !this.insertFullPath;
-      this.insertTypeLabel.setText(`当前插入类型: ${this.insertFullPath ? "全路径" : "单项标签"}`);
+      this.insertTypeLabel.setText(`Current insert type: ${this.insertFullPath ? "Full path" : "Sigle tag "}`);
     };
   }
 
@@ -248,27 +243,27 @@ class TagSelectorSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "标签选择器插件设置" });
+    containerEl.createEl("h2", { text: "Tag Selector" });
     new Setting(containerEl)
-      .setName("标签目录路径")
-      .setDesc("包含标签 Markdown 文件的目录路径。")
+      .setName("Tag Directory Path")
+      .setDesc("Directory path where tag files are md files.")
       .addText((text) => {
         text
-          .setPlaceholder("输入标签目录的路径")
+          .setPlaceholder("Input directory path here")
           .setValue(this.plugin.settings.tagDirectoryPath || "")
           .onChange((value) => {
             this.plugin.settings.tagDirectoryPath = value;
-            console.log("更新后的 tagDirectoryPath:", this.plugin.settings.tagDirectoryPath);
+            console.log("Update tagDirectoryPath:", this.plugin.settings.tagDirectoryPath);
           });
         text.inputEl.classList.add("fixed-size-input");
       });
     new Setting(containerEl).addButton((button) => {
       button
-        .setButtonText("保存")
+        .setButtonText("Save")
         .setCta()
         .onClick(async () => {
           await this.plugin.saveSettings();
-          console.log("通过按钮保存的设置:", this.plugin.settings);
+          console.log("Used button to save settings:", this.plugin.settings);
         });
     });
   }
