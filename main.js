@@ -2,63 +2,74 @@ const { Plugin, TFile, TFolder, Modal, Notice, PluginSettingTab, Setting, Vault 
 
 class TagSelectorPlugin extends Plugin {
   async onload() {
-    console.log('Loading TagSelectorPlugin');
+    console.log('加载 TagSelectorPlugin');
 
-    // Load settings
+    // 加载设置
     await this.loadSettings();
 
-    console.log('Settings loaded');
+    console.log('设置已加载');
 
-    // Load tag files
+    // 加载标签文件
     await this.loadTagFiles();
 
-    console.log('Tag files loaded');
+    console.log('标签文件已加载');
 
-    // Add custom styles
+    // 添加自定义样式
     this.addCustomStyles();
 
-    console.log('Custom styles added');
+    console.log('自定义样式已添加');
 
-    // Add setting tab
+    // 添加设置选项卡
     this.addSettingTab(new TagSelectorSettingTab(this.app, this));
 
-    console.log('Setting tab added');
+    console.log('设置选项卡已添加');
 
-    // Add command
+    // 添加命令
     this.addCommand({
       id: 'select-tag',
-      name: 'Select Tag from Tag System',
+      name: '从标签系统选择标签',
       callback: () => this.selectTag(),
     });
 
-    console.log('Command added');
+    console.log('命令已添加');
+  }
+
+  async loadSettings() {
+    console.log('正在加载设置...');
+    this.settings = await this.loadData(); // 直接使用 loadData 的结果作为 settings
+    console.log('加载数据:', this.settings);
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+    new Notice('设置保存成功！');
   }
 
   async loadTagFiles() {
     if (!this.settings.tagDirectoryPath) {
-      new Notice('Tag directory not set. Please set the tag directory in the plugin settings.');
+      new Notice('标签目录未设置。请在插件设置中设置标签目录。');
       return;
     }
 
     const tagDirectoryPath = decodeURIComponent(this.settings.tagDirectoryPath);
-    console.log('Loading tag files from directory:', tagDirectoryPath);
+    console.log('从目录加载标签文件:', tagDirectoryPath);
 
     try {
       const files = await this.getTagFiles(tagDirectoryPath);
-      console.log('Found tag files:', files);
+      console.log('找到的标签文件:', files);
 
       this.allTags = [];
 
       for (const filePath of files) {
         const tags = await this.getTags(filePath);
-        console.log('Tags from file', filePath, ':', tags);
+        console.log('来自文件', filePath, '的标签:', tags);
 
         this.allTags.push(...tags);
       }
 
-      console.log('All tags:', this.allTags);
+      console.log('所有标签:', this.allTags);
     } catch (error) {
-      console.error('Error loading tag files:', error);
+      console.error('加载标签文件时出错:', error);
     }
   }
 
@@ -248,19 +259,18 @@ class TagSelectorSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'Tag Selector Plugin Settings' });
+    containerEl.createEl('h2', { text: '标签选择器插件设置' });
 
     new Setting(containerEl)
-      .setName('Tag Directory Path')
-      .setDesc('The path to the directory containing tag markdown files.')
+      .setName('标签目录路径')
+      .setDesc('包含标签 Markdown 文件的目录路径。')
       .addText(text => {
         text
-          .setPlaceholder('Enter the path to the tag directory')
+          .setPlaceholder('输入标签目录的路径')
           .setValue(this.plugin.settings.tagDirectoryPath || '')
-          .onChange(async value => {
+          .onChange(value => {
             this.plugin.settings.tagDirectoryPath = value;
-            console.log('Updated tagDirectoryPath:', this.plugin.settings.tagDirectoryPath);
-            await this.plugin.saveSettings();
+            console.log('更新后的 tagDirectoryPath:', this.plugin.settings.tagDirectoryPath);
           });
         text.inputEl.classList.add('fixed-size-input');
       });
@@ -268,13 +278,14 @@ class TagSelectorSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .addButton(button => {
         button
-          .setButtonText('Save')
+          .setButtonText('保存')
           .setCta()
           .onClick(async () => {
             await this.plugin.saveSettings();
-            console.log('Settings saved via button:', this.plugin.settings);
+            console.log('通过按钮保存的设置:', this.plugin.settings);
           });
       });
   }
 }
+
 module.exports = TagSelectorPlugin;
