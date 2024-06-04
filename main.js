@@ -1,4 +1,3 @@
-// 全路径和单标签选择和插入正常，带.的标签插入有问题，.号之后的内容不在标签内，变成正文。
 const {
   Plugin,
   TFile,
@@ -12,27 +11,19 @@ const {
 
 class TagSelectorPlugin extends Plugin {
   async onload() {
-    console.log("加载 TagSelectorPlugin");
     await this.loadSettings();
-    console.log("设置已加载");
     this.addCustomStyles();
-    console.log("自定义样式已添加");
     this.addSettingTab(new TagSelectorSettingTab(this.app, this));
-    console.log("设置选项卡已添加");
     this.addCommand({
       id: "select-tag",
-      name: "从标签系统选择标签",
+      name: "tag-selector",
       callback: () => this.selectTag(),
     });
-    console.log("命令已添加");
   }
 
   async loadSettings() {
-    console.log("正在加载设置...");
     const loadedData = await this.loadData();
-    console.log("加载数据:", loadedData);
     this.settings = Object.assign({}, { tagDirectoryPath: "" }, loadedData);
-    console.log("合并后的设置:", this.settings);
   }
 
   async saveSettings() {
@@ -84,10 +75,6 @@ class TagSelectorPlugin extends Plugin {
         return;
       }
       const { tagPath, tagContent, insertFullPath } = await this.showTagSelectionDialog(tags);
-      // console.log("tags:", tags);
-      // console.log("tagPath:", tagPath);
-      // console.log("tagContent:", tagContent);
-      // console.log("insertFullPath:", insertFullPath);
       if (tagPath) {
         this.insertTagIntoActiveFile(tagPath, tagContent, insertFullPath);
       }
@@ -116,13 +103,11 @@ class TagSelectorPlugin extends Plugin {
       return [];
     }
     const content = await this.app.vault.read(file);
-    console.log("content:", content);    
     return this.parseTagsFromContent(content);
    
   }
 
   parseTagsFromContent(content) {
-    console.log("content:", content);
     const lines = content.split('\n');
     const tags = [];
     const stack = [{ level: 0, children: tags, tagPath: '' }];
@@ -142,7 +127,6 @@ class TagSelectorPlugin extends Plugin {
         stack.push({ level, children: node.children, tagPath });
       }
     });
-    // console.log("tags:", tags);
     return tags;
   }
 
@@ -166,15 +150,8 @@ class TagSelectorPlugin extends Plugin {
     const editor = activeLeaf.view.sourceMode.cmEditor;
     if (!editor) return;
     const tagToInsert = insertFullPath ? `#${tagPath}` : `#${tagContent}`;
-    console.log("tagPath:", tagPath);
-    console.log("tagContent:", tagContent);
-    console.log("tagToInsert:", tagToInsert);
-
-    // 获取当前光标位置
     const cursor = editor.getCursor();
-    // 插入标签
-    editor.replaceRange(tagToInsert, cursor);
-    // 移动光标到标签后
+    editor.replaceRange(tagToInsert, cursor);    
     editor.setCursor(cursor.line, cursor.ch + tagToInsert.length);
 }
 
@@ -236,8 +213,6 @@ class TagSelectionModal extends Modal {
       const span = li.createEl("span", { text: tagNode.tag, cls: "tag-node" });
       span.onclick = () => {
         this.onSelect({ tagPath: tagNode.tagPath, tagContent:tagNode.tag, insertFullPath: this.insertFullPath });
-        // console.log("选择的标签:", tagNode.tagPath);
-        // console.log("插入类型:", this.insertFullPath);
         this.close();
       };
       if (tagNode.children.length > 0) {
@@ -276,14 +251,13 @@ class TagSelectorSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "标签选择器插件设置" });
     new Setting(containerEl)
       .setName("标签目录路径")
-      .setDesc("包含标签 Markdown 文件的目录路径。")
+      .setDesc("包含标签的 Markdown 文件的目录路径。")
       .addText((text) => {
         text
           .setPlaceholder("输入标签目录的路径")
           .setValue(this.plugin.settings.tagDirectoryPath || "")
           .onChange((value) => {
             this.plugin.settings.tagDirectoryPath = value;
-            console.log("更新后的 tagDirectoryPath:", this.plugin.settings.tagDirectoryPath);
           });
         text.inputEl.classList.add("fixed-size-input");
       });
@@ -293,7 +267,6 @@ class TagSelectorSettingTab extends PluginSettingTab {
         .setCta()
         .onClick(async () => {
           await this.plugin.saveSettings();
-          console.log("通过按钮保存的设置:", this.plugin.settings);
         });
     });
   }
