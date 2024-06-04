@@ -1,3 +1,4 @@
+// 全路径和单标签选择和插入正常，带.的标签插入有问题，.号之后的内容不在标签内，变成正文。
 const {
   Plugin,
   TFile,
@@ -11,31 +12,36 @@ const {
 
 class TagSelectorPlugin extends Plugin {
   async onload() {
-    console.log("Loading TagSelectorPlugin");
+    console.log("加载 TagSelectorPlugin");
     await this.loadSettings();
-    console.log("Setting loaded");
+    console.log("设置已加载");
     this.addCustomStyles();
+    console.log("自定义样式已添加");
     this.addSettingTab(new TagSelectorSettingTab(this.app, this));
+    console.log("设置选项卡已添加");
     this.addCommand({
       id: "select-tag",
-      name: "tag-selector",
+      name: "从标签系统选择标签",
       callback: () => this.selectTag(),
     });
+    console.log("命令已添加");
   }
 
   async loadSettings() {
+    console.log("正在加载设置...");
     const loadedData = await this.loadData();
-    console.log("loadedData:", loadedData);
+    console.log("加载数据:", loadedData);
     this.settings = Object.assign({}, { tagDirectoryPath: "" }, loadedData);
+    console.log("合并后的设置:", this.settings);
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
-    new Notice("File path saved.");
+    new Notice("设置保存成功！");
   }
 
   onunload() {
-    console.log("Unloading TagSelectorPlugin");
+    console.log("卸载 TagSelectorPlugin");
   }
 
   addCustomStyles() {
@@ -77,9 +83,13 @@ class TagSelectorPlugin extends Plugin {
         new Notice("No tags found in the selected file.");
         return;
       }
-      const { tagPath, fullPath, insertFullPath } = await this.showTagSelectionDialog(tags);
+      const { tagPath, tagContent, insertFullPath } = await this.showTagSelectionDialog(tags);
+      // console.log("tags:", tags);
+      // console.log("tagPath:", tagPath);
+      // console.log("tagContent:", tagContent);
+      // console.log("insertFullPath:", insertFullPath);
       if (tagPath) {
-        this.insertTagIntoActiveFile(tagPath, fullPath, insertFullPath);
+        this.insertTagIntoActiveFile(tagPath, tagContent, insertFullPath);
       }
     }
   }
@@ -94,7 +104,7 @@ class TagSelectorPlugin extends Plugin {
         }
       });
     } else {
-      console.error("Path is not a folder:", tagDirectoryPath);
+      console.error("路径不是目录:", tagDirectoryPath);
     }
     return files;
   }
@@ -106,27 +116,33 @@ class TagSelectorPlugin extends Plugin {
       return [];
     }
     const content = await this.app.vault.read(file);
+    console.log("content:", content);    
     return this.parseTagsFromContent(content);
+   
   }
 
   parseTagsFromContent(content) {
+    console.log("content:", content);
     const lines = content.split('\n');
     const tags = [];
     const stack = [{ level: 0, children: tags, tagPath: '' }];
     lines.forEach(line => {
-      const match = line.match(/^(#+)\s(.+)$/);
+      // const match = line.match(/^(#+)\s(.+)$/);
+      const match = line.match(/^(#+)\s(.+?)(?=\s|$)/);
+
       if (match) {
         const level = match[1].length;
-        const tag = match[2];
-        const tagPath = (stack[stack.length - 1].tagPath ? stack[stack.length - 1].tagPath + '/' : '') + tag;
-        const node = { tag, tagPath, children: [] };
+        const tag = match[2];        
         while (stack[stack.length - 1].level >= level) {
           stack.pop();
         }
+        const tagPath = (stack[stack.length - 1].tagPath ? stack[stack.length - 1].tagPath + '/' : '') + tag;
+        const node = { tag, tagPath, children: [] };
         stack[stack.length - 1].children.push(node);
         stack.push({ level, children: node.children, tagPath });
       }
     });
+    // console.log("tags:", tags);
     return tags;
   }
 
@@ -144,14 +160,26 @@ class TagSelectorPlugin extends Plugin {
     });
   }
 
-  async insertTagIntoActiveFile(tagPath, fullPath, insertFullPath) {
+  async insertTagIntoActiveFile(tagPath, tagContent, insertFullPath) {
     const activeLeaf = this.app.workspace.activeLeaf;
     if (!activeLeaf) return;
     const editor = activeLeaf.view.sourceMode.cmEditor;
     if (!editor) return;
-    const tagToInsert = insertFullPath ? `#${tagPath}` : `#${tagPath.split("/").pop()}`;
-    editor.replaceSelection(tagToInsert);
-  }
+    const tagToInsert = insertFullPath ? `#${tagPath}` : `#${tagContent}`;
+    console.log("tagPath:", tagPath);
+    console.log("tagContent:", tagContent);
+    console.log("tagToInsert:", tagToInsert);
+
+    // 获取当前光标位置
+    const cursor = editor.getCursor();
+    // 插入标签
+    editor.replaceRange(tagToInsert, cursor);
+    // 移动光标到标签后
+    editor.setCursor(cursor.line, cursor.ch + tagToInsert.length);
+}
+
+  
+
 }
 
 class FileSelectionModal extends Modal {
@@ -163,7 +191,7 @@ class FileSelectionModal extends Modal {
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Choose a file" });
+    contentEl.createEl("h2", { text: "选择文件" });
     this.renderFiles(contentEl, this.files);
   }
 
@@ -190,12 +218,12 @@ class TagSelectionModal extends Modal {
     super(app);
     this.tags = tags;
     this.onSelect = onSelect;
-    this.insertFullPath = true; // Default insert full path
+    this.insertFullPath = true; // 默认插入全路径
   }
 
   onOpen() {
     const { contentEl } = this;
-    contentEl.createEl("h2", { text: "Choose a tag" });
+    contentEl.createEl("h2", { text: "选择标签" });
     this.renderInsertTypeLabel(contentEl);
     this.renderTags(contentEl, this.tags);
     this.renderInsertTypeButton(contentEl);
@@ -207,7 +235,9 @@ class TagSelectionModal extends Modal {
       const li = ul.createEl("li");
       const span = li.createEl("span", { text: tagNode.tag, cls: "tag-node" });
       span.onclick = () => {
-        this.onSelect({ tagPath: tagNode.tagPath, insertFullPath: this.insertFullPath });
+        this.onSelect({ tagPath: tagNode.tagPath, tagContent:tagNode.tag, insertFullPath: this.insertFullPath });
+        // console.log("选择的标签:", tagNode.tagPath);
+        // console.log("插入类型:", this.insertFullPath);
         this.close();
       };
       if (tagNode.children.length > 0) {
@@ -217,14 +247,14 @@ class TagSelectionModal extends Modal {
   }
 
   renderInsertTypeLabel(container) {
-    this.insertTypeLabel = container.createEl("div", { text: "Current insert type: Full path", cls: "insert-type-label" });
+    this.insertTypeLabel = container.createEl("div", { text: "当前插入类型: 全路径", cls: "insert-type-label" });
   }
 
   renderInsertTypeButton(container) {
-    const button = container.createEl("button", { text: "Switch Insert Type", cls: "insert-type-button" });
+    const button = container.createEl("button", { text: "切换插入类型", cls: "insert-type-button" });
     button.onclick = () => {
       this.insertFullPath = !this.insertFullPath;
-      this.insertTypeLabel.setText(`Current insert type: ${this.insertFullPath ? "Full path" : "Sigle tag "}`);
+      this.insertTypeLabel.setText(`当前插入类型: ${this.insertFullPath ? "全路径" : "单项标签"}`);
     };
   }
 
@@ -243,27 +273,27 @@ class TagSelectorSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Tag Selector" });
+    containerEl.createEl("h2", { text: "标签选择器插件设置" });
     new Setting(containerEl)
-      .setName("Tag Directory Path")
-      .setDesc("Directory path where tag files are md files.")
+      .setName("标签目录路径")
+      .setDesc("包含标签 Markdown 文件的目录路径。")
       .addText((text) => {
         text
-          .setPlaceholder("Input directory path here")
+          .setPlaceholder("输入标签目录的路径")
           .setValue(this.plugin.settings.tagDirectoryPath || "")
           .onChange((value) => {
             this.plugin.settings.tagDirectoryPath = value;
-            console.log("Update tagDirectoryPath:", this.plugin.settings.tagDirectoryPath);
+            console.log("更新后的 tagDirectoryPath:", this.plugin.settings.tagDirectoryPath);
           });
         text.inputEl.classList.add("fixed-size-input");
       });
     new Setting(containerEl).addButton((button) => {
       button
-        .setButtonText("Save")
+        .setButtonText("保存")
         .setCta()
         .onClick(async () => {
           await this.plugin.saveSettings();
-          console.log("Used button to save settings:", this.plugin.settings);
+          console.log("通过按钮保存的设置:", this.plugin.settings);
         });
     });
   }
